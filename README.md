@@ -105,6 +105,19 @@ exports.getEmployees =  asyncHandler(async(req, res, next) => {
   });
 ```
 
+**routes/routes.js**
+
+```js
+router.get('/employees', getEmployees);
+```
+
+**Postman API Request**
+
+```url 
+GET http://localhost:5000/api/v1/employees
+```
+
+
 ## Task - 2
 
 2. List Employee API - API to List employee with pagination
@@ -115,7 +128,7 @@ API should have atleast following input
 
 ### Implementation
 
-### GET Employee Details API
+### GET Employee Details API - Sorting and Pagination
 
 - Elasticsearch API to get the Employee details.
 
@@ -134,25 +147,31 @@ GET /employee-api/_search
 }
 ```
 
-**handlers/employeeHandler.js**
+**handlers/paginateEmpRes.js**
 
 ```js
 const elasticClient = require('../utils/hostEsClient');
 const asyncHandler = require('../middlewares/async');
 const ErrorResponse = require('../utils/errorResponse');
 
-exports.addEmployees = asyncHandler(async(req, res, next) => {
-    const employees = await elasticClient.index({
+exports.searchEmpByDate = asyncHandler(async(req, res, next) => {
+    let query = {
         index: 'employee-api',
-        body: req.body
-    })
+        body: {
+            from: 1,
+            size: 5,
+            sort: [{"joinDate": {"order": "desc", "unmapped_type" : "long"}}],
+            query: {match_all: {}}
+        }
+    }
+    const employees = await elasticClient.search(query);
     if (!employees) {
-        return next(new ErrorResponse('Error adding employees', 500));
+        return next(new ErrorResponse('Employees not found', 404));
     } else {
-        return res.status(201).json({
+        res.status(200).json({
             success: true,
-            data: employees
-        });
+            data: employees.hits.hits
+        })
     }
 });
 ```
@@ -160,11 +179,153 @@ exports.addEmployees = asyncHandler(async(req, res, next) => {
 **routes/routes.js**
 
 ```js
-router.post('/employees', bodyParser, addEmployees);
+router.get('/employees/bydate', searchEmpByDate);
 ```
 
 **Postman API Request**
 
 ```url 
-POST http://localhost:5000/api/v1/employee
+GET http://localhost:5000/api/v1/employees/bydate
+
+```
+
+## Task - 3
+
+3. Add attendance - API for marking attendance of an employee
+store attendance details in a separate index
+Each document should contain following details
+- Employee ID
+- Date
+- present
+
+### Implementation
+
+### Create Attendance Details API
+
+- Elasticsearch API to get the Attendance details.
+
+```bash
+PUT /attendance/_doc/100
+{
+  "employee_id": 23517,
+  "date": "2022-01-09",
+  "present": true
+}
+```
+
+**handlers/attendanceHandler.js**
+
+```js
+const elasticClient  = require('../utils/hostEsClient');
+const asyncHandler = require('../middlewares/async');
+const ErrorResponse = require('../utils/errorResponse');
+
+exports.addAttendance = asyncHandler(async (req, res, next) => {
+    const attendance = await elasticClient.index({
+        index: 'attendance',
+        body: req.body
+    });
+    if (!attendance) {
+        return next(new ErrorResponse('Error adding attendance', 500));
+    } else {
+         res.status(201).json({
+            success: true,
+            data: attendance
+        });
+    }
+});
+
+```
+
+**routes/routes.js**
+
+```js
+router.post('/attendance', bodyParser, addAttendance);
+```
+
+**Postman API Request**
+
+```url 
+POST http://localhost:5000/api/v1/attendance
+```
+
+### Get the Attendance Details API
+
+- Elasticsearch API to get the Attendance details.
+
+```bash
+GET /attendance/_search
+{
+    "from": 1,
+    "size": 5,
+    "sort": [{"date": {"order": "desc", "unmapped_type" : "long"}}],
+    "query": {"match_all": {}}
+}
+```
+
+**handlers/attendanceHandler.js**
+
+```js
+const elasticClient = require('../utils/hostEsClient');
+const asyncHandler = require('../middlewares/async');
+const ErrorResponse = require('../utils/errorResponse');
+
+exports.getAttendance =  asyncHandler(async (req, res, next) => {
+    let query = {
+        index: 'attendance',
+        body: {
+            size: 50,
+            query: {match_all:{}}
+        }
+      } 
+    const attendance = await elasticClient.search(query);
+    if (!attendance) {
+        return next(new ErrorResponse('Attendance not found', 404));
+    } else {
+        res.status(200).json({
+            success: true,
+            data: attendance
+        })
+    }
+});
+```
+
+**routes/routes.js**
+
+```js
+router.get('/attendance-details', getAttendance);
+```
+
+**Postman API Request**
+
+```url 
+GET http://localhost:5000/api/v1/attendance-details
+```
+
+
+## Task - 4
+
+4.View attendance -API for listing attendance details of an employee sorted by date and pagination included
+API input
+- Employee ID
+- from (basically page number)
+- offset (page size)
+- sortby (field name to sort the table)
+
+## Implementation:
+
+### Get the Attendance API - Sorting and Pagination
+
+- Elasticsearch API to view the Attendance details sorted by date.
+
+```bash
+GET /attendance/_search
+{
+    "from": 1,
+    "size": 5,
+    "sort": [{"date": {"order": "desc", "unmapped_type" : "long"}}],
+            query: {match_all: {}}
+        }
+
+}
 ```
