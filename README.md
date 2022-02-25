@@ -130,7 +130,7 @@ API should have atleast following input
 
 ### GET Employee Details API - Sorting and Pagination
 
-- Elasticsearch API to get the Employee details.
+- Elasticsearch API to get the Employee details by sorting & pagination.
 
 ```bash
 GET /employee-api/_search
@@ -202,7 +202,7 @@ Each document should contain following details
 
 ### Create Attendance Details API
 
-- Elasticsearch API to get the Attendance details.
+- Elasticsearch API to post the Attendance details.
 
 ```bash
 PUT /attendance/_doc/100
@@ -256,10 +256,10 @@ POST http://localhost:5000/api/v1/attendance
 ```bash
 GET /attendance/_search
 {
-    "from": 1,
-    "size": 5,
-    "sort": [{"date": {"order": "desc", "unmapped_type" : "long"}}],
-    "query": {"match_all": {}}
+  "size": 50, 
+  "query": {
+    "match_all": {}
+  }
 }
 ```
 
@@ -325,7 +325,180 @@ GET /attendance/_search
     "size": 5,
     "sort": [{"date": {"order": "desc", "unmapped_type" : "long"}}],
             query: {match_all: {}}
-        }
-
+    }
 }
 ```
+**handlers/paginateAttendanceRes.js**
+
+```js
+const elasticClient = require('../utils/hostEsClient');
+const asyncHandler = require('../middlewares/async');
+const ErrorResponse = require('../utils/errorResponse');
+
+exports.sortAttendance = asyncHandler(async(req, res, next) => {
+    let query = {
+        index: 'attendance',
+        body: {
+            from: 1,
+            size: 5,
+            sort: [{"date": {"order": "desc", "unmapped_type" : "long"}}],
+            query: {match_all: {}}
+        }
+    }
+    const attendance = await elasticClient.search(query);
+    if (!attendance) {
+        return next(new ErrorResponse('Attendance not found', 404));
+    } else {
+        res.status(200).json({
+            success: true,
+            data: attendance.hits.hits
+        })
+    }
+});
+```
+
+**routes/routes.js**
+
+```js
+router.get('/attendance-details/bydate', sortAttendance);
+```
+
+**Postman API Request**
+
+```url 
+GET http://localhost:5000/api/v1/attendance-details/bydate
+
+```
+
+## Task - 5
+
+5. List attendance - API for listing attendance of all employees
+    API Input - Date
+
+## Implementation:
+
+### GET Attendance Data by Date
+
+- Elasticsearch API to get the Attendance details by date field.
+
+```bash
+GET attendance/_search/
+{
+  "query": {
+    "term": {
+      "date": "2022-01-14"
+    }
+  }
+}
+```
+
+**handlers/listAttendanceByDate.js**
+
+```js
+const elasticClient  = require('../utils/hostEsClient');    
+const asyncHandler = require('../middlewares/async');
+const ErrorResponse = require('../utils/errorResponse');
+
+exports.listAttendanceByDate = asyncHandler(async(req, res, next) => {
+    let query = {
+        index: 'attendance',
+        body: {
+            query: {
+                term: {
+                    "date": req.params.date
+                }
+            }
+        }
+    }
+    const attendance = await elasticClient.search(query);
+    if (!attendance) {
+        return next(new ErrorResponse('Attendance not found', 404));
+    } else {
+        res.status(200).json({
+            success: true,
+            data: attendance.hits.hits
+        })
+    }
+});
+```
+
+**routes/routes.js**
+
+```js
+router.get('/attendance-details/bydate/:date', listAttendanceByDate);
+```
+
+**Postman API Request**
+
+```url 
+GET http://localhost:5000/api/v1/attendance-details/bydate/2022-01-14
+
+```
+
+## Task - 6
+
+6. Search API - To Search the Employee
+    API Input - Search text
+
+## Implementation:
+
+### Search Employee API - Using a Text or Field
+
+- Elasticsearch API to search the Employee details using a search text or field.
+
+```bash
+GET /employee-api/_search
+{
+  "size": 20, 
+  "query": {
+    "match_phrase": {
+      "employee_name": "Ben"
+    }
+  }
+}
+```
+
+**handlers/searchEmployees.js**
+
+```js
+const elasticClient = require('../utils/hostEsClient');
+const asyncHandler = require('../middlewares/async');
+const ErrorResponse = require('../utils/errorResponse');
+
+exports.searchEmployeesByText = asyncHandler(async(req, res, next) => {
+    let query = {
+        index: 'employee-api',
+        body: {
+            size: 20,
+            query: {
+                match_phrase: {
+                    "employee_name": req.params.text
+                }
+            }
+        }
+    }
+    const employees = await elasticClient.search(query);
+    if (!employees) {
+        return next(new ErrorResponse('Employees not found', 404));
+    } else {
+        res.status(200).json({
+            success: true,
+            data: employees.hits.hits
+        })
+    }
+});
+```
+**routes/routes.js**
+
+```js
+router.get('/employees/:text', searchEmployeesByText);
+
+```
+
+**Postman API Request**
+
+```url 
+GET http://localhost:5000/api/v1/employees/Ben
+
+```
+
