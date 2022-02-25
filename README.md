@@ -502,3 +502,101 @@ GET http://localhost:5000/api/v1/employees/Ben
 
 ```
 
+## Other Files
+
+### server.js
+
+```js
+const express = require('express');
+const dotenv = require('dotenv');
+const router = require('./routes/routes');
+
+dotenv.config({ path: './config/config.env' });
+const app = express();
+const PORT = process.env.PORT || 5000;
+app.use('/api/v1', router);
+app.listen(PORT, () => {
+  console.log(`App runs in ${process.env.NODE_ENV} mode on port ${PORT}`);
+});
+```
+
+### config.env
+
+```js
+NODE_ENV = development
+PORT = 5000
+```
+
+### package.json
+
+```json
+"scripts": {
+    "test": "mocha */*.test.js",
+    "test-watch": "nodemon --exec \"npm test\"",
+    "start": "NODE_ENV=production node server",
+    "dev": "nodemon server"
+  }
+```
+
+### Routes File - Routes.js
+
+```js
+const express = require('express');
+const router =  express.Router();
+const bodyParser = require('body-parser').json();
+const {addEmployees, getEmployees} = require('../handlers/employeeHandler');
+const {searchEmpByDate} = require('../handlers/paginateEmployeeRes');
+const {addAttendance, getAttendance} = require('../handlers/attendanceHandler');
+const { sortAttendance } = require('../handlers/paginateAttendanceRes');
+const { listAttendanceByDate } = require('../handlers/listAttendanceByDate');
+const { searchEmployeesByText } = require('../handlers/searchEmployees');
+
+router.post('/employees', bodyParser, addEmployees);
+router.post('/attendance', bodyParser, addAttendance);
+router.get('/employees', getEmployees);
+router.get('/attendance-details', getAttendance);
+router.get('/employees/bydate', searchEmpByDate);
+router.get('/attendance-details/bydate', sortAttendance);
+router.get('/attendance-details/bydate/:date', listAttendanceByDate);
+router.get('/employees/:text', searchEmployeesByText);
+
+module.exports = router;
+
+```
+
+### utils/hostEsClient.js
+
+```js
+const elastic = require('elasticsearch');
+const elasticClient = elastic.Client({
+    hosts: 'localhost:9200'
+});
+
+module.exports = elasticClient;
+
+```
+
+### utils/errorResponse.js
+
+```js
+class ErrorResponse extends Error {
+    constructor(message, statusCode) {
+      super(message);
+      this.statusCode = statusCode;
+    }
+}
+
+module.exports = ErrorResponse;
+```
+
+### middlewares/async.js
+
+```js
+const asyncHandler = (fn) => (req, res, next) => {
+    Promise.resolve(fn(req, res, next)).catch(next);
+  };
+  
+module.exports = asyncHandler;
+
+```
+
